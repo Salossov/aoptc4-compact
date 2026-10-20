@@ -1,0 +1,22 @@
+{
+  "thaumictinkerer:device_details": {
+    "entrypoints": {
+      "common": "thaumcraft.viewers.tooltip.tinkerer.WthitCompatibility",
+      "client": "thaumcraft.viewers.tooltip.tinkerer.WthitClientCompatibility"
+    },
+    "side": "*",
+    "required": [
+      "thaumictinkerer"
+    ]
+  },
+  "thaumcraft_viewers:essentia": {
+    "entrypoints": {
+      "common": "thaumcraft.viewers.tooltip.WthitCoreCompatibility",
+      "client": "thaumcraft.viewers.tooltip.WthitCoreClientCompatibility"
+    },
+    "side": "*",
+    "required": [
+      "thaumcraft"
+    ]
+  }
+}

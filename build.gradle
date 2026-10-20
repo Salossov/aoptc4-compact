@@ -1,0 +1,91 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.148'
+}
+group = 'thaumcraft'
+version = project.mod_version
+base { archivesName = 'aoptc4-client-compact' }
+java { toolchain.languageVersion = JavaLanguageVersion.of(21); withSourcesJar() }
+sourceSets {
+    verification {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+configurations.verificationImplementation.extendsFrom configurations.implementation
+configurations.verificationCompileOnly.extendsFrom configurations.compileOnly
+configurations.verificationRuntimeOnly.extendsFrom configurations.runtimeOnly
+neoForge {
+    version = project.neo_version
+    addModdingDependenciesTo sourceSets.test
+    addModdingDependenciesTo sourceSets.verification
+    mods { thaumcraft_viewers { sourceSet sourceSets.main; sourceSet sourceSets.verification } }
+    runs {
+        gameTestServer {
+            type = 'gameTestServer'
+            sourceSet = sourceSets.verification
+            gameDirectory = file('runs/gametest')
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'thaumcraft_viewers'
+        }
+    }
+}
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.blamejared.com' }
+    maven { url = 'https://maven.terraformersmc.com/releases' }
+    maven { url = 'https://maven2.bai.lol' }
+    maven { url = 'https://api.modrinth.com/maven' }
+    maven { url = 'https://maven.theillusivec4.top/' }
+}
+def apiJar = file(providers.gradleProperty('thaumcraftApiJar').getOrElse("libs/thaumcraft-api-${project.thaumcraft_version}.jar"))
+def tinkererJar = file(providers.gradleProperty('tinkererJar').getOrElse('libs/ThaumicTinkerer-1.21.1-2.5.164-port.1.jar'))
+dependencies {
+    if (findProject(':api') != null) {
+        compileOnly project(':api')
+        testImplementation project(':api')
+    } else {
+        compileOnly files(apiJar)
+        testImplementation files(apiJar)
+    }
+    compileOnly files(tinkererJar)
+    compileOnly 'mezz.jei:jei-1.21.1-common-api:19.8.4.110'
+    compileOnly 'mezz.jei:jei-1.21.1-neoforge-api:19.8.4.110'
+    compileOnly 'dev.emi:emi-neoforge:1.1.13+1.21.1:api'
+    compileOnly 'maven.modrinth:jade:15.10.1+neoforge'
+    compileOnly 'mcp.mobius.waila:wthit-api:neo-12.5.5'
+    def profile = providers.gradleProperty('viewerCompatibility').getOrElse('latest')
+    def jeiVersions = [minimum:'19.8.4.110', middle:'19.19.6.233', latest:'19.64.0.455']
+    def emiVersions = [minimum:'1.1.13+1.21.1', middle:'1.1.20+1.21.1', latest:'1.1.24+1.21.1']
+    if (!jeiVersions.containsKey(profile)) throw new GradleException('Unknown viewerCompatibility: ' + profile)
+    testRuntimeOnly "mezz.jei:jei-1.21.1-neoforge:${jeiVersions[profile]}"
+    testRuntimeOnly "dev.emi:emi-neoforge:${emiVersions[profile]}"
+    verificationRuntimeOnly files(providers.gradleProperty('thaumcraftRuntimeJar').getOrElse("libs/thaumcraft-1.21.1-${project.thaumcraft_version}.jar"))
+    if (!providers.gradleProperty('withoutTinkerer').map { it.toBoolean() }.getOrElse(false)) verificationRuntimeOnly files(tinkererJar)
+    verificationRuntimeOnly 'top.theillusivec4.curios:curios-neoforge:9.5.1+1.21.1'
+    if (providers.gradleProperty('withJade').map { it.toBoolean() }.getOrElse(false)) verificationRuntimeOnly 'maven.modrinth:jade:15.10.1+neoforge'
+    if (providers.gradleProperty('withWthit').map { it.toBoolean() }.getOrElse(false)) {
+        verificationRuntimeOnly 'mcp.mobius.waila:wthit:neo-12.5.5'
+        verificationRuntimeOnly 'lol.bai:badpackets:neo-0.8.2'
+    }
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.withType(AbstractArchiveTask).configureEach { preserveFileTimestamps = false; reproducibleFileOrder = true }
+tasks.withType(Jar).configureEach { from('NOTICE.md') }
+def artifactVersion = project.version.toString()
+tasks.named('processResources') {
+    inputs.property('mod_version', artifactVersion)
+    filesMatching('META-INF/neoforge.mods.toml') { expand(mod_version:artifactVersion) }
+}
+tasks.named('test') { enabled = false }
+tasks.register('isolationTest', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'thaumcraft.viewers.IsolationTest'
+    args layout.buildDirectory.dir('classes/java/main').get().asFile.absolutePath, file('src/main/resources/META-INF/neoforge.mods.toml').absolutePath
+}
+tasks.register('presentationTest', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'thaumcraft.viewers.PresentationTest'
+}
+tasks.named('check') { dependsOn 'isolationTest', 'presentationTest', 'verificationClasses' }

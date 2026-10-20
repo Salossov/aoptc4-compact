@@ -1,0 +1,87 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    paths: &build_paths
+      - 'src/**'
+      - '**/*.gradle'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.ps1'
+      - '.github/workflows/**'
+  pull_request:
+    paths: *build_paths
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Check out Thaumcraft
+        if: ${{ !env.ACT }}
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ vars.THAUMCRAFT_REPOSITORY || 'Salossov/aop-thaumcraft-4' }}
+          ref: ${{ vars.THAUMCRAFT_REF || 'main' }}
+          path: .dependencies/thaumcraft
+          persist-credentials: false
+      - name: Require Tinkerer source repository
+        if: ${{ !env.ACT }}
+        env:
+          TINKERER_REPOSITORY: ${{ vars.TINKERER_REPOSITORY }}
+        run: test -n "$TINKERER_REPOSITORY" || { echo 'Set repository variable TINKERER_REPOSITORY to owner/repository.'; exit 1; }
+      - name: Check out Thaumic Tinkerer
+        if: ${{ !env.ACT }}
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ vars.TINKERER_REPOSITORY }}
+          ref: ${{ vars.TINKERER_REF || 'main' }}
+          path: .dependencies/tinkerer
+          persist-credentials: false
+      - name: Set up Java 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up Gradle and validate wrapper
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+          cache-disabled: ${{ env.ACT == 'true' }}
+      - name: Build Thaumcraft API and runtime
+        working-directory: .dependencies/thaumcraft
+        run: sh ./gradlew --no-daemon --console=plain :api:assemble :mod:assemble
+      - name: Build Thaumic Tinkerer
+        run: |
+          api=$(find .dependencies/thaumcraft/api/build/libs -maxdepth 1 -name 'thaumcraft-api-*.jar' ! -name '*-sources.jar')
+          test -n "$api" && test "$(printf '%s\n' "$api" | wc -l)" -eq 1
+          sh .dependencies/tinkerer/gradlew -p .dependencies/tinkerer --no-daemon --console=plain assemble "-PthaumcraftApiJar=$PWD/$api"
+      - name: Build and check
+        run: |
+          api=$(find .dependencies/thaumcraft/api/build/libs -maxdepth 1 -name 'thaumcraft-api-*.jar' ! -name '*-sources.jar')
+          test -n "$api" && test "$(printf '%s\n' "$api" | wc -l)" -eq 1
+          sh ./gradlew --no-daemon --console=plain clean build "-PthaumcraftApiJar=$PWD/$api" "-PtinkererJar=$PWD/$(find .dependencies/tinkerer/build/libs -maxdepth 1 -name 'ThaumicTinkerer-*.jar' ! -name '*-sources.jar')"
+      - name: Save build artifacts
+        if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: aoptc4-client-compact
+          path: build/libs/*.jar
+          if-no-files-found: error
