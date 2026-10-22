@@ -237,7 +237,7 @@ jobs:
       - name: Find matching published Compact
         if: ${{ !env.ACT }}
         env:
-          GH_TOKEN: ${{ secrets.DEPENDENCY_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: python3 .github/scripts/suite.py fetch compact
       - name: '4 - Build or reuse Compact'
         id: build_compact
