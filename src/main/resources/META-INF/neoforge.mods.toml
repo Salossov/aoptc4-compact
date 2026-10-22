@@ -5,6 +5,7 @@ license="See NOTICE.md: All Rights Reserved; Tinkerer adapters CC-BY-NC-SA-3.0"
 modId="thaumcraft_viewers"
 version="${mod_version}"
 displayName="AOP:TC4 Compact"
+logoFile="logo.png"
 authors="Salossov"
 description='''Optional JEI/EMI recipe integration and Jade/WTHIT block tooltips for AOP: Thaumcraft 4. Thaumic Tinkerer support activates when installed. Server installation provides richer tooltip data; clients can use available synchronized data without it.'''
 [[dependencies.thaumcraft_viewers]]
@@ -56,6 +57,13 @@ side="BOTH"
 [[dependencies.thaumcraft_viewers]]
 modId="thaumictinkerer"
 type="optional"
-versionRange="[2.5.164-port.1,)"
+versionRange="[1.0.0,2)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.thaumcraft_viewers]]
+modId="aop_ui"
+type="required"
+versionRange="[0.7.0,0.8)"
 ordering="AFTER"
 side="BOTH"

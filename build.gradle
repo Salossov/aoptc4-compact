@@ -2,9 +2,12 @@ plugins {
     id 'java-library'
     id 'net.neoforged.moddev' version '2.0.148'
 }
+def workspaceRoot = file(providers.gradleProperty('aopWorkspace').getOrElse('.'))
+layout.buildDirectory = new File(workspaceRoot, 'build')
+
 group = 'thaumcraft'
 version = project.mod_version
-base { archivesName = 'aoptc4-client-compact' }
+base { archivesName = 'aoptc4-compact' }
 java { toolchain.languageVersion = JavaLanguageVersion.of(21); withSourcesJar() }
 sourceSets {
     verification {
@@ -24,7 +27,7 @@ neoForge {
         gameTestServer {
             type = 'gameTestServer'
             sourceSet = sourceSets.verification
-            gameDirectory = file('runs/gametest')
+            gameDirectory = new File(workspaceRoot, 'runs/gametest')
             systemProperty 'neoforge.enabledGameTestNamespaces', 'thaumcraft_viewers'
         }
     }
@@ -38,8 +41,9 @@ repositories {
     maven { url = 'https://maven.theillusivec4.top/' }
 }
 def apiJar = file(providers.gradleProperty('thaumcraftApiJar').getOrElse("libs/thaumcraft-api-${project.thaumcraft_version}.jar"))
-def tinkererJar = file(providers.gradleProperty('tinkererJar').getOrElse('libs/ThaumicTinkerer-1.21.1-2.5.164-port.1.jar'))
+def tinkererJar = file(providers.gradleProperty('tinkererJar').getOrElse('libs/ThaumicTinkerer-1.21.1-1.0.0.jar'))
 dependencies {
+    implementation files(providers.gradleProperty('aopUiJar').getOrElse('libs/aopui-1.21.1-0.7.0.jar'))
     if (findProject(':api') != null) {
         compileOnly project(':api')
         testImplementation project(':api')
@@ -78,12 +82,14 @@ tasks.named('processResources') {
 }
 tasks.named('test') { enabled = false }
 tasks.register('isolationTest', JavaExec) {
+    workingDir workspaceRoot
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'thaumcraft.viewers.IsolationTest'
     args layout.buildDirectory.dir('classes/java/main').get().asFile.absolutePath, file('src/main/resources/META-INF/neoforge.mods.toml').absolutePath
 }
 tasks.register('presentationTest', JavaExec) {
+    workingDir workspaceRoot
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'thaumcraft.viewers.PresentationTest'
